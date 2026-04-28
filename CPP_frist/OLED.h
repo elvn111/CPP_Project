@@ -37,7 +37,7 @@ void ReCreateCanvas(int w, int h);
 
 void OLED_ShowPicture(void);
 void OLED_DrawInit(HWND hWnd);
-void OLED_DrawClear(void);
+void OLED_DrawClear(int x, int y, int x1, int y1);
 void OLED_Update(HWND hWnd);
 
 void OLED_Horizon(int X,int Y,int Z);
@@ -76,7 +76,7 @@ void OLED_DrawARatateNum(int x,int y,float angle,int num,int length,Color color)
 void OLED_DrawANum(int x,int y,int num,int length,Color color);
 
 void rotate_point(float cx, float cy, float angle, float	x, 	float y, int *out_x, int *out_y);
-
+void rotate_point_float(float cx, float   cy, float angle, float x, float y, float* out_x, float* out_y);
 void OLED_DrawAAixs(int16_t num,uint16_t t,int AMP);
 
 void OLED_DrawALine(int x,int y,int x1,int y1,Color color);
@@ -90,4 +90,7 @@ void OLED3D_AMPDrawARatateWord(int x, int y, int z, int x_c, int y_c, int z_c, i
 void OLED3DTKN_AMPDrawARatateWord(int x, int y, int z, int x_c, int y_c, int z_c, int TKN, int  anglex, int  angley, int  anglez, char CH, Color color, int num);
 void OLED3DTKN_AMPDrawARatateString(int x, int y, int z, int x_c, int y_c, int z_c, int TKN, int  anglex, int  angley, int  anglez, char* CH, Color color, int num);
 void OLED3D_AMPDrawARatateString(int x, int y, int z, int x_c, int y_c, int z_c, int  anglex, int  angley, int  anglez, char* CH, Color color, int num);
+void OLED3D_DrawARound(int x_a, int y_a, int z_a, int r, int  anglex, int  angley, int  anglez, Color color);
+
+void OLED_DrawAPen(int x, int y, int wide, Color color);
 #endif

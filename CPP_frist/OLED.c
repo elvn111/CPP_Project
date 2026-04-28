@@ -81,15 +81,29 @@ void OLED_DrawAPoint(int x, int y, Color color)
 		return;
 
 	// Windows 像素排布：B G R A
+	BYTE a = (color >> 24) & 0xFF;
 	BYTE b = (color >> 16) & 0xFF;
 	BYTE g = (color >> 8) & 0xFF;
 	BYTE r = color & 0xFF;
 
 	UINT idx = (UINT)y * WINDOWS_LENGTH * 4 + (UINT)x * 4;
-	g_frameBuf[idx + 0] = b;//blue
-	g_frameBuf[idx + 1] = g ;//green
-	g_frameBuf[idx + 2] = r;//red
-	g_frameBuf[idx + 3] = 255;//a
+	if (a)
+	{
+		if ((g_frameBuf[idx + 0] == 0) && (g_frameBuf[idx + 1] == 0) && (g_frameBuf[idx + 2] == 0))
+		{
+			g_frameBuf[idx + 0] = b;//blue
+			g_frameBuf[idx + 1] = g ;//green
+			g_frameBuf[idx + 2] = r;//red
+			g_frameBuf[idx + 3] = 255;//a
+		}
+	}
+	else
+	{
+		g_frameBuf[idx + 0] = b;//blue
+		g_frameBuf[idx + 1] = g;//green
+		g_frameBuf[idx + 2] = r;//red
+		g_frameBuf[idx + 3] = 255;//a
+	}
 }
 
 /**
@@ -132,9 +146,14 @@ void OLED_Update(HWND hWnd)
 	ReleaseDC(hWnd, hdc);
 }
 
-void OLED_DrawClear(void)
+void OLED_DrawClear(int x,int y,int x1,int y1)
 {
-	memset(g_frameBuf, 0, (size_t)WINDOWS_LENGTH * WINDOWS_HIGH * 4);
+	int w=x1-x, h=y1-y;
+	UINT idx = (UINT)y * WINDOWS_LENGTH * 4 + (UINT)x * 4;
+	for (int i=0;i < h;i++)
+	{
+		memset(g_frameBuf+(idx+WINDOWS_LENGTH*i)*4, 0, (size_t)w* 4);
+	}
 }
 
 /**
@@ -486,7 +505,7 @@ void OLED_DrawAGeDiao(void){
 	int a=32;
 	int a_a=1;
   	while (1){
-		OLED_DrawClear();
+		//OLED_DrawClear();
 		OLED_DrawARound(a,40,8,0,OLED_White);
 		OLED_DrawARound(96,48,8,0,OLED_White);
 		OLED_DrawARound(96,32,8,0,OLED_White);
@@ -520,6 +539,28 @@ void rotate_point(float 	cx, float   cy, float angle,
 
     *out_x = (int)round(cx + dx * c - dy * s);
     *out_y = (int)round(cy + dx * s + dy * c);
+}
+
+/**
+	* @brief  求旋转坐标
+	* @param  cx cy 旋转中心坐标
+	* @param  angle 旋转角度，范围：0~360
+	* @param  x y 旋转前坐标
+	* @param  out_x out_y 旋转后坐标
+	* @retval 无
+	*/
+void rotate_point_float(float 	cx, float   cy, float angle,
+	float		 x, float    y,
+	float* out_x, float* out_y) {
+	float rad = (pi / 180) * angle;
+	float s = sin(rad);
+	float c = cos(rad);
+
+	float dx = x - cx;
+	float dy = y - cy;
+
+	*out_x = (cx + dx * c - dy * s);
+	*out_y = round(cy + dx * s + dy * c);
 }
 
 /**
@@ -859,7 +900,7 @@ void OLED_DrawAClock(int h,int min,int second){
 	* @param  对应坐标
 	* @retval 无
 	*/
-const int VanishingPointLength = 1000;//灭点距离
+const int VanishingPointLength = 2000;//灭点距离
 void OLED3D_DrawAFace(int x_c, int y_c, int z_c,
 	int x_1, int y_1, int z_1,
 	int x_2, int y_2, int z_2,
@@ -913,8 +954,6 @@ void OLED3D_DrawARotateFace(int x_c, int y_c, int z_c,
 	rotate_point(0, 0, angle_x, y_3, z_3, &y_3, &z_3);
 	rotate_point(0, 0, angle_x, y_4, z_4, &y_4, &z_4);
 
-	
-
 	OLED3D_DrawAFace(x_c, y_c, z_c, x_1, y_1, z_1, x_2, y_2, z_2, x_3, y_3, z_3, x_4, y_4, z_4,color);
 }
 
@@ -928,53 +967,60 @@ void OLED3D_DrawARotateFace(int x_c, int y_c, int z_c,
 	* @retval 无
 	*/
 void OLED3D_AMPDrawARatateWord(int x, int y, int z, int x_c, int y_c, int z_c, int  anglex, int  angley, int  anglez, char CH, Color color, int num) {
-	uint64_t block = (1ULL << num) - 1; // 生成 num 个连续 1
-	int zero_pointx = 4 * num;
-	int zero_pointz = 8 * num;
-	static uint64_t amp[2][64] = { 0 };
-	memset(amp, 0, 1028);
-	float k;
-	//float k= (float)(VanishingPointLength - y_c - y_1) / VanishingPointLength;
-	if (num > 8)
-		num = 8;
-	int x_r,y_r ,z_r;
+	float k1 =  0 ;
+	int x_r[4], y_r[4], z_r[4];
 	int idx = CH - ' ';
-	for (int i = 0;i < 8;i++) {
-		for (int j = 0;j < 8;j++) {
-			for (int k = 0;k < num;k++) {
-				if (OLED_F8x16[idx][i] & (1ull << j))
-					amp[0][num * i + k] |= (block << (num * j));
-				if (OLED_F8x16[idx][i + 8] & (1ull << j))
-					amp[1][num * i + k] |= (block << (num * j));
-			}
-		}
-	}
-	for (int i = 0;i < (8 * num);i++) {
-		for (int j = 0;j < (8 * num);j++) {
-			if (amp[0][i] & (1ull << j)) {
-				rotate_point(0, 0, angley, i - zero_pointx + x_c, j + z_c- zero_pointz, &x_r, &z_r);
-				rotate_point(0, 0, anglez, x_r, y_c, &x_r, &y_r);
-				rotate_point(0, 0, anglex, y_r, z_r, &y_r, &z_r);
+	for (int i = 0;i < 8;i++) {//x
+		for (int j = 0;j < 8;j++) {//y
+			if (OLED_F8x16[idx][i] & (1ull << j))
+			{
+				x_r[0] = (i - 4) * num;
+				z_r[0] = (j - 8) * num;
 
-				k = (float)(VanishingPointLength - y  - y_r) / VanishingPointLength;
-				x_r = (float)(x_r ) * k + x;
-				z_r = (float)(z_r ) * k + z;
-				if (x_r < 0 || x_r >= WINDOWS_LENGTH || z_r < 0 || z_r >= WINDOWS_HIGH) continue;
-				OLED_DrawAPoint(x_r, z_r, color);
+				x_r[1] = (i - 4 + 1) * num;
+				z_r[1] = (j - 8) * num;
+
+				x_r[2] = (i - 4 + 1) * num;
+				z_r[2] = (j - 8 + 1) * num;
+
+				x_r[3] = (i - 4) * num;
+				z_r[3] = (j - 8 + 1) * num;
+				for (int k = 0;k < 4;k++)
+				{
+					rotate_point(0, 0, angley, x_r[k] + x_c, z_r[k] + z_c, &x_r[k], &z_r[k]);
+					rotate_point(0, 0, anglez, x_r[k], y_c, &x_r[k], &y_r[k]);
+					rotate_point(0, 0, anglex, y_r[k], z_r[k], &y_r[k], &z_r[k]);//A面
+
+					k1 = (float)(VanishingPointLength - y - y_r[k]) / VanishingPointLength;
+					x_r[k] = (float)x_r[k] * k1 + x;
+					z_r[k] = (float)z_r[k] * k1 + z;
+				}
+				OLED_DrawAquard(x_r[0], z_r[0], x_r[1], z_r[1], x_r[2], z_r[2], x_r[3], z_r[3], color);
 			}
-			if (amp[1][i] & (1ull << j)) {
-				rotate_point(0, 0, angley, i - zero_pointx+x_c, j+z_c, &x_r, &z_r);
-				rotate_point(0, 0, anglez, x_r, y_c, &x_r, &y_r);
-				rotate_point(0, 0,  anglex, y_r, z_r, &y_r, &z_r);
-				//rotate_point(x_c, z_c, angley, i - zero_pointx, j , &x_r, &z_r);
-				//rotate_point(x_c, y_c, anglez, x_r, 0, &x_r, &y_r);
-				//rotate_point(y_c, z_c, anglex, y_r, z_r, &y_r, &z_r);
-				
-				k = (float)(VanishingPointLength - y  - y_r) / VanishingPointLength;
-				x_r = (float)(x_r) * k + x;
-				z_r = (float)(z_r) * k + z;
-				if (x_r < 0 || x_r >= WINDOWS_LENGTH || z_r < 0 || z_r >= WINDOWS_HIGH) continue;
-				OLED_DrawAPoint(x_r, z_r, color);
+			if (OLED_F8x16[idx][i + 8] & (1ull << j))
+			{
+				x_r[0] = (i - 4) * num;
+				z_r[0] = (j ) * num;
+
+				x_r[1] = (i - 4 + 1) * num;
+				z_r[1] = (j ) * num;
+
+				x_r[2] = (i - 4 + 1) * num;
+				z_r[2] = (j  + 1) * num;
+
+				x_r[3] = (i - 4) * num;
+				z_r[3] = (j  + 1) * num;
+				for (int k = 0;k < 4;k++)
+				{
+					rotate_point(0, 0, angley, x_r[k] + x_c, z_r[k] + z_c, &x_r[k], &z_r[k]);
+					rotate_point(0, 0, anglez, x_r[k], y_c, &x_r[k], &y_r[k]);
+					rotate_point(0, 0, anglex, y_r[k], z_r[k], &y_r[k], &z_r[k]);//A面
+
+					k1 = (float)(VanishingPointLength - y - y_r[k]) / VanishingPointLength;
+					x_r[k] = (float)x_r[k] * k1 + x;
+					z_r[k] = (float)z_r[k] * k1 + z;
+				}
+				OLED_DrawAquard(x_r[0], z_r[0], x_r[1], z_r[1], x_r[2], z_r[2], x_r[3], z_r[3], color);
 			}
 		}
 	}
@@ -989,89 +1035,137 @@ void OLED3D_AMPDrawARatateWord(int x, int y, int z, int x_c, int y_c, int z_c, i
 	* @param  num 放大倍数，范围：1~8
 	* @retval 无
 	*/
-void OLED3DTKN_AMPDrawARatateWord(int x, int y, int z, int x_c, int y_c, int z_c,int TKN, int  anglex, int  angley, int  anglez, char CH, Color color, int num) {
-	uint64_t block = (1ULL << num) - 1; // 生成 num 个连续 1
-	int zero_pointx = 4 * num;
-	int zero_pointz = 8 * num;
-	static uint64_t amp[2][64] = { 0 };
-	memset(amp, 0, 1028);
-	float k;
-	float k1;
-	//float k= (float)(VanishingPointLength - y_c - y_1) / VanishingPointLength;
-	if (num > 8)
-		num = 8;
-	int x_r, y_r, z_r;
-	int x_r1, y_r1, z_r1;
-	int idx = CH - ' ';
-	for (int i = 0;i < 8;i++) {
-		for (int j = 0;j < 8;j++) {
-			for (int k = 0;k < num;k++) {
-				if (OLED_F8x16[idx][i] & (1ull << j))
-					amp[0][num * i + k] |= (block << (num * j));
-				if (OLED_F8x16[idx][i + 8] & (1ull << j))
-					amp[1][num * i + k] |= (block << (num * j));
-			}
-		}
+void OLED3DTKN_AMPDrawARatateWord(int x, int y, int z, int x_c, int y_c, int z_c, int TKN, int  anglex, int  angley, int  anglez, char CH, Color color, int num) {
+	float k1[2][4] = { 0 };
+	int x_r[2][4], y_r[2][4], z_r[2][4];
+	float n_vector[3][3] = {
+		{10,0,0},
+		{0,10,0},
+		{0,0,10}
+	};
+	for (int i = 0;i < 3;i++)
+	{
+		rotate_point_float(0, 0, angley, n_vector[i][0], n_vector[i][2], &n_vector[i][0], &n_vector[i][2]);
+		rotate_point_float(0, 0, anglez, n_vector[i][0], n_vector[i][1], &n_vector[i][0], &n_vector[i][1]);
+		rotate_point_float(0, 0, anglex, n_vector[i][1], n_vector[i][2], &n_vector[i][1], &n_vector[i][2]);
 	}
-	for (int i = 0;i < (8 * num);i++) {
-		for (int j = 0;j < (8 * num);j++) {
-			if (amp[0][i] & (1ull << j)) {
-				rotate_point(0, 0, angley, i - zero_pointx+x_c, j - zero_pointz+z_c, &x_r, &z_r);
-				rotate_point(0, 0, anglez, x_r, y_c, &x_r, &y_r);
-				rotate_point(0, 0, anglex, y_r, z_r, &y_r, &z_r);//A面
+	int idx = CH - ' ';
+	for (int i = 0;i < 8;i++) {//x
+		for (int j = 0;j < 8;j++) {//y
+			if (OLED_F8x16[idx][i] & (1ull << j))
+			{
+				x_r[0][0] = (i - 4) * num;
+				z_r[0][0] = (j - 8) * num;
 
-				rotate_point(0, 0, angley, i - zero_pointx+x_c, j - zero_pointz+z_c, &x_r1, &z_r1);
-				rotate_point(0, 0, anglez, x_r1, TKN+y_c, &x_r1, &y_r1);//B面
-				rotate_point(0, 0, anglex, y_r1, z_r1, &y_r1, &z_r1);
+				x_r[0][1] = (i - 4 + 1) * num;
+				z_r[0][1] = (j - 8) * num;
 
-				k = (float)(VanishingPointLength - y  - y_r) / VanishingPointLength;
-				k1 = (float)(VanishingPointLength - y - y_r1) / VanishingPointLength;
-				x_r = (float)x_r * k + x;
-				z_r = (float)z_r * k + z;
+				x_r[0][2] = (i - 4 + 1) * num;
+				z_r[0][2] = (j - 8 + 1) * num;
 
-				x_r1 = (float)x_r1 * k + x;
-				z_r1 = (float)z_r1 * k + z;
-				//if (0 == ((amp[0][i] & (1ull << (j + 1))) || 0 == (amp[0][i] & (1ull << (j - 1)))) || (amp[0][i - 1] & (1ull << (j))) || 0 == (amp[0][i + 1] & (1ull << (j))))
-				//{
-				//	OLED_DrawALine(x_r, z_r, x_r1, z_r1, ~color);
-				//}  
-				if (!(x_r < 0 || x_r >= WINDOWS_LENGTH || z_r < 0 || z_r >= WINDOWS_HIGH)) 
-					OLED_DrawAPoint(x_r, z_r, color);
-				if (!(x_r1 < 0 || x_r1 >= WINDOWS_LENGTH || z_r1 < 0 || z_r1 >= WINDOWS_HIGH))
-					OLED_DrawAPoint(x_r1, z_r1, color);
-				if ( 0==((amp[0][i] & (1ull << (j + 1)))|| 0 == (amp[0][i] & (1ull << (j - 1))))|| (amp[0][i-1] & (1ull << (j ))) || 0 == (amp[0][i+1] & (1ull << (j ))))
-					OLED_DrawALine(x_r, z_r, x_r1, z_r1, ~color);
+				x_r[0][3] = (i - 4) * num;
+				z_r[0][3] = (j - 8 + 1) * num;
+				for (int k = 0;k < 4;k++)
+				{
+					rotate_point(0, 0, angley, x_r[0][k] + x_c, z_r[0][k] + z_c, &x_r[1][k], &z_r[1][k]);
+					rotate_point(0, 0, anglez, x_r[1][k], y_c + TKN, &x_r[1][k], &y_r[1][k]);
+					rotate_point(0, 0, anglex, y_r[1][k], z_r[1][k], &y_r[1][k], &z_r[1][k]);//A面
+					k1[1][k] = (float)(VanishingPointLength - y - y_r[1][k]) / VanishingPointLength;
+					x_r[1][k] = (float)x_r[1][k] * k1[1][k] + x;
+					z_r[1][k] = (float)z_r[1][k] * k1[1][k] + z;
+
+					rotate_point(0, 0, angley, x_r[0][k] + x_c, z_r[0][k] + z_c, &x_r[0][k], &z_r[0][k]);
+					rotate_point(0, 0, anglez, x_r[0][k], y_c, &x_r[0][k], &y_r[0][k]);
+					rotate_point(0, 0, anglex, y_r[0][k], z_r[0][k], &y_r[0][k], &z_r[0][k]);//A面
+					k1[0][k] = (float)(VanishingPointLength - y - y_r[0][k]) / VanishingPointLength;
+					x_r[0][k] = (float)x_r[0][k] * k1[0][k] + x;
+					z_r[0][k] = (float)z_r[0][k] * k1[0][k] + z;
+				}
+				//y
+				if (n_vector[1][1] < 0)
+					OLED_DrawAquard(x_r[1][0], z_r[1][0], x_r[1][1], z_r[1][1], x_r[1][2], z_r[1][2], x_r[1][3], z_r[1][3], color);
+				else
+					OLED_DrawAquard(x_r[0][0], z_r[0][0], x_r[0][1], z_r[0][1], x_r[0][2], z_r[0][2], x_r[0][3], z_r[0][3], color);
+				//x
+				if (n_vector[0][1] < 0)
+				{
+					if (0 == (OLED_F8x16[idx][i + 1] & (1ull << j)))
+						OLED_DrawAquard(x_r[0][1], z_r[0][1], x_r[1][1], z_r[1][1], x_r[1][2], z_r[1][2], x_r[0][2], z_r[0][2], ~color);
+				}
 				else
 				{
-					OLED_DrawAPoint(x_r1-1, z_r1, color);
-					OLED_DrawAPoint(x_r1+1, z_r1, color);
-					OLED_DrawAPoint(x_r1, z_r1+1, color);
-					OLED_DrawAPoint(x_r1, z_r1-1, color);
+					if (0 == (OLED_F8x16[idx][i -1] & (1ull << j)))
+						OLED_DrawAquard(x_r[0][0], z_r[0][0], x_r[1][0], z_r[1][0], x_r[1][3], z_r[1][3], x_r[0][3], z_r[0][3], ~color);
 				}
-					
+				//z
+				if (n_vector[2][1] > 0)
+				{
+					if (0 == (OLED_F8x16[idx][i] & (1ull << j-1)) )
+						OLED_DrawAquard(x_r[0][0], z_r[0][0], x_r[1][0], z_r[1][0], x_r[1][1], z_r[1][1], x_r[0][1], z_r[0][1], ~color);
+				}
+				else
+				{
+					if (0 == (OLED_F8x16[idx][i] & (1ull << j+1)) )
+						OLED_DrawAquard(x_r[0][2], z_r[0][2], x_r[1][2], z_r[1][2], x_r[1][3], z_r[1][3], x_r[0][3], z_r[0][3], ~color);
+				}
 				
 			}
-			if (amp[1][i] & (1ull << j)) {
-				rotate_point(0, 0, angley, i - zero_pointx + x_c, j + z_c, &x_r, &z_r);
-				rotate_point(0, 0, anglez, x_r, y_c, &x_r, &y_r);
-				rotate_point(0, 0, anglex, y_r, z_r, &y_r, &z_r);//A面
+			if (OLED_F8x16[idx][i + 8] & (1ull << j))
+			{
+				x_r[0][0] = (i - 4) * num;
+				z_r[0][0] = (j ) * num;
 
-				rotate_point(0, 0, angley, i - zero_pointx + x_c, j + z_c, &x_r1, &z_r1);
-				rotate_point(0, 0, anglez, x_r1, TKN + y_c, &x_r1, &y_r1);//B面
-				rotate_point(0, 0, anglex, y_r1, z_r1, &y_r1, &z_r1);
+				x_r[0][1] = (i - 4 + 1) * num;
+				z_r[0][1] = (j ) * num;
 
-				k = (float)(VanishingPointLength - y - y_r) / VanishingPointLength;
-				k1 = (float)(VanishingPointLength - y - y_r1) / VanishingPointLength;
+				x_r[0][2] = (i - 4 + 1) * num;
+				z_r[0][2] = (j  + 1) * num;
 
-				x_r = (float)x_r * k + x;
-				z_r = (float)z_r * k + z;
+				x_r[0][3] = (i - 4) * num;
+				z_r[0][3] = (j  + 1) * num;
+				for (int k = 0;k < 4;k++)
+				{
+					rotate_point(0, 0, angley, x_r[0][k] + x_c, z_r[0][k] + z_c, &x_r[1][k], &z_r[1][k]);
+					rotate_point(0, 0, anglez, x_r[1][k], y_c + TKN, &x_r[1][k], &y_r[1][k]);
+					rotate_point(0, 0, anglex, y_r[1][k], z_r[1][k], &y_r[1][k], &z_r[1][k]);//A面
+					k1[1][k] = (float)(VanishingPointLength - y - y_r[1][k]) / VanishingPointLength;
+					x_r[1][k] = (float)x_r[1][k] * k1[1][k] + x;
+					z_r[1][k] = (float)z_r[1][k] * k1[1][k] + z;
 
-				x_r1 = (float)x_r1 * k + x;
-				z_r1 = (float)z_r1 * k + z;
-				if (!(x_r < 0 || x_r >= WINDOWS_LENGTH || z_r < 0 || z_r >= WINDOWS_HIGH))
-					OLED_DrawAPoint(x_r, z_r, color);
-				if (!(x_r1 < 0 || x_r1 >= WINDOWS_LENGTH || z_r1 < 0 || z_r1 >= WINDOWS_HIGH))
-					OLED_DrawAPoint(x_r1, z_r1, color);
+					rotate_point(0, 0, angley, x_r[0][k] + x_c, z_r[0][k] + z_c, &x_r[0][k], &z_r[0][k]);
+					rotate_point(0, 0, anglez, x_r[0][k], y_c, &x_r[0][k], &y_r[0][k]);
+					rotate_point(0, 0, anglex, y_r[0][k], z_r[0][k], &y_r[0][k], &z_r[0][k]);//A面
+					k1[0][k] = (float)(VanishingPointLength - y - y_r[0][k]) / VanishingPointLength;
+					x_r[0][k] = (float)x_r[0][k] * k1[0][k] + x;
+					z_r[0][k] = (float)z_r[0][k] * k1[0][k] + z;
+				}
+				//y
+				if (n_vector[1][1] < 0)
+					OLED_DrawAquard(x_r[1][0], z_r[1][0], x_r[1][1], z_r[1][1], x_r[1][2], z_r[1][2], x_r[1][3], z_r[1][3], color);
+				else
+					OLED_DrawAquard(x_r[0][0], z_r[0][0], x_r[0][1], z_r[0][1], x_r[0][2], z_r[0][2], x_r[0][3], z_r[0][3], color);
+				//x
+				if (n_vector[0][1] < 0)
+				{
+					if(0==(OLED_F8x16[idx][i + 9] & (1ull << j)))
+						OLED_DrawAquard(x_r[0][1], z_r[0][1], x_r[1][1], z_r[1][1], x_r[1][2], z_r[1][2], x_r[0][2], z_r[0][2], ~color);
+				}
+				else
+				{
+					if (0 == (OLED_F8x16[idx][i + 7] & (1ull << j)))
+						OLED_DrawAquard(x_r[0][0], z_r[0][0], x_r[1][0], z_r[1][0], x_r[1][3], z_r[1][3], x_r[0][3], z_r[0][3], ~color);
+				}
+				//z
+				if (n_vector[2][1] > 0)
+				{
+					if (0 == (OLED_F8x16[idx][i+8] & (1ull << j - 1)))
+						OLED_DrawAquard(x_r[0][0], z_r[0][0], x_r[1][0], z_r[1][0], x_r[1][1], z_r[1][1], x_r[0][1], z_r[0][1], ~color);
+				}
+				else
+				{
+					if (0 == (OLED_F8x16[idx][i+8] & (1ull << j + 1)))
+						OLED_DrawAquard(x_r[0][2], z_r[0][2], x_r[1][2], z_r[1][2], x_r[1][3], z_r[1][3], x_r[0][3], z_r[0][3], ~color);
+				}
 			}
 		}
 	}
@@ -1092,5 +1186,58 @@ void OLED3D_AMPDrawARatateString(int x, int y, int z, int x_c, int y_c, int z_c,
 	for (int i = 0;i < stringlength;i++)
 	{
 		OLED3D_AMPDrawARatateWord(x , y, z, x_c - num * 4 * (stringlength - 2 * i), y_c, z_c,  anglex, angley, anglez, *(CH + i), color, num);
+	}
+}
+
+
+/**
+  * @brief  画一个3D圆
+  * @param  x_a 圆心x坐标，范围：0~127
+  * @param  y_a 圆心y坐标，范围：0~63
+  * @param  r 圆半径，范围：0~WINDOWS_HIGH
+  * @param  r_a 内圆半径，范围：0~WINDOWS_HIGH
+  * @param  color 颜色，范围：OLED_Black、OLED_White、OLED_Contr
+  * @retval 无
+  */
+void OLED3D_DrawARound(int x_a, int y_a,int z_a, int r,  int  anglex, int  angley, int  anglez, Color color) {
+	int x, y,z;
+	int x_r, y_r, z_r;
+	int x_max, z_max, x_min, z_min;
+	float k1;
+	int r2 = r * r;
+	x_max = x_a + r;
+	x_min = x_a - r;
+	z_max = z_a + r;
+	z_min = z_a - r;
+
+	for (int i = -r;i < r;i++)
+	{
+		for (int j = -r;j <r;j++)
+		{
+			if (i * i + j * j <= r2)
+			{
+				rotate_point(0, 0, angley, i, j, &x_r, &z_r);
+				rotate_point(0, 0, anglez, x_r, 0, &x_r, &y_r);
+				rotate_point(0, 0, anglex, y_r, z_r, &y_r, &z_r);//A面
+
+				k1 = (float)(VanishingPointLength - y_a - y_r) / VanishingPointLength;
+				x_r = (float)x_r * k1+x_a;
+				z_r = (float)z_r * k1+z_a;
+				OLED_DrawAPoint(x_r, z_r, color);
+			}
+		}
+	}
+}
+
+void OLED_DrawAPen(int x, int y,int wide, Color color)
+{
+	x = x - wide / 2;
+	y = y - wide / 2;
+	for (int i = 0;i < wide;i++)
+	{
+		for (int j = 0;j < wide;j++)
+		{
+			OLED_DrawAPoint(x + i, y + j, color);
+		}
 	}
 }
