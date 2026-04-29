@@ -37,7 +37,7 @@ void ReCreateCanvas(int w, int h);
 
 void OLED_ShowPicture(void);
 void OLED_DrawInit(HWND hWnd);
-void OLED_DrawClear(int x, int y, int x1, int y1);
+void OLED_DrawClear(int x, int y, int x1, int y1, Color color);
 void OLED_Update(HWND hWnd);
 
 void OLED_Horizon(int X,int Y,int Z);
@@ -80,6 +80,7 @@ void rotate_point_float(float cx, float   cy, float angle, float x, float y, flo
 void OLED_DrawAAixs(int16_t num,uint16_t t,int AMP);
 
 void OLED_DrawALine(int x,int y,int x1,int y1,Color color);
+void OLED_DrawALine_Wide(int x, int y, int x1, int y1, int wide, Color color);
 void OLED_DrawALine_For_Axis(int x,int y,int x1,int y1,Color color);
 
 void OLED_DrawAClock(int h,int min,int scend);

@@ -1,15 +1,26 @@
+
+#include <fstream>
 #include <Windows.h>
 #include <math.h>
 
 extern "C" {
-    int wheel;
+   
+    #include"OLED.h"
     extern unsigned int  WINDOWS_LENGTH;
     extern unsigned int WINDOWS_HIGH;
-    #include"OLED.h"
-    #define KEY_DOWN(vk)  (GetAsyncKeyState(vk))
-    HDC hdc;
     extern int16_t OLED_Sample_value[WINDOWS_LENGTH_MAX][4];
+    extern BYTE* g_frameBuf;
+    HDC hdc;
 }
+
+#define KEY_DOWN(vk)  (GetAsyncKeyState(vk))
+
+using namespace std;
+
+fstream file;
+
+int wheel;
+
 
 // 窗口过程回调
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -27,8 +38,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
 
     case WM_CLOSE:
+    {
+        file.open("test.txt");
+        file.write((char*)g_frameBuf, WINDOWS_HIGH_MAX*WINDOWS_LENGTH_MAX * 4);
+        //file << "smqk" << endl;
+        file.close();
         DestroyWindow(hWnd);
         break;
+    }
+       
 
     case WM_DESTROY:
         PostQuitMessage(0);
@@ -47,6 +65,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 // 程序入口（Win32 标准入口）
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
+    Sleep(1000);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     // 窗口类名（宽字符 L 前缀）
     const wchar_t CLASS_NAME[] = L"MyWindowClass";
@@ -101,8 +120,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int windows_length=WINDOWS_LENGTH;
     int windows_high=WINDOWS_HIGH;
     Color color;
+    int x_n, x_old, y_n, y_old;
+
+    file.open("test.txt");
+    file.read((char *)g_frameBuf, WINDOWS_HIGH_MAX * WINDOWS_LENGTH_MAX * 4);
+    file.close();
     while (1)
     {
+        //file << "smqk" << endl;
+        //窗口尺寸检测和画布重新生成
         GetCursorPos(&pt);
         GetWindowRect(hWnd, &rc);
 
@@ -111,11 +137,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
         if (windows_length != WINDOWS_LENGTH || windows_high != WINDOWS_HIGH)
         {
-            ReCreateCanvas(WINDOWS_LENGTH, WINDOWS_HIGH);
+            //ReCreateCanvas(WINDOWS_LENGTH, WINDOWS_HIGH);
+            //OLED_DrawClear(0, 0, WINDOWS_LENGTH, WINDOWS_HIGH, 0xffffff);
         }
-        
         windows_length = WINDOWS_LENGTH;
         windows_high = WINDOWS_HIGH;
+
         OLED_Sample_value[t][0] = -(pt.y-470)/2;
         UpdateWindow(hWnd);
         if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -148,14 +175,33 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         OLED_DrawAPen(50,50, 50, color);
         
-        if (KEY_DOWN(VK_LBUTTON) ){
-            OLED_DrawAPen(pt.x - rc.left-9, pt.y - rc.top-40, 5, color);
+        x_n = pt.x - rc.left - 9;
+        y_n = pt.y - rc.top - 40;
+
+
+
+        if (KEY_DOWN(VK_LBUTTON) )
+        {
+            int wide = 5;
+            
+           // if (((x_old - x_n < wide || x_n - x_old < wide) && (y_old - y_n < wide || y_n - y_old)) || (y_old == 0 && x_old == 0))
+        
+               OLED_DrawAPen(x_n, y_n,wide, color);
+               OLED_DrawALine_Wide(x_n, y_n, x_old, y_old, wide, color);
         }
-        if (KEY_DOWN(VK_RBUTTON)) {
-            OLED_DrawAPen(pt.x - rc.left - 9, pt.y - rc.top - 40, 50,0x00);
+        if (KEY_DOWN(VK_RBUTTON)) 
+        {
+            //OLED_DrawAPen(pt.x - rc.left - 9, pt.y - rc.top - 40, 50,0x00);
+            OLED_DrawAPen(x_n, y_n, 50, 0);
+            OLED_DrawALine_Wide(x_n, y_n, x_old, y_old, 50, 0);
         }
 
-        //OLED_DrawClear(0,0, WINDOWS_LENGTH,WINDOWS_HIGH);
+
+        x_old = x_n;
+        y_old = y_n;
+        
+
+        //OLED_DrawClear(0,0, WINDOWS_LENGTH,WINDOWS_HIGH,0);
         
         //OLED_DrawANum(200, 80, rc.right - rc.left, 4, OLED_White);
         //OLED_DrawANum(200, 100, rc.bottom - rc.top, 4, OLED_White);
@@ -216,8 +262,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         //t = (t + 1)%(WINDOWS_LENGTH_MAX*2);
         OLED_ShowPicture();
         OLED_Update(hWnd);
-       // Sleep(1);
+        Sleep(1);
     }
+
     return 0;
 }
 

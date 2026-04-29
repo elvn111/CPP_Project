@@ -13,7 +13,7 @@ static HWND      g_hWnd;
 static HDC       g_hdc;
 static HDC       g_memDC;
 static HBITMAP   g_hBmp;
-static BYTE* g_frameBuf;   // 显存缓冲区 BGRA 每像素4字节
+BYTE* g_frameBuf;   // 显存缓冲区 BGRA 每像素4字节
 
 COLORREF OLEDPicture[WINDOWS_LENGTH_MAX][WINDOWS_HIGH_MAX] = { 0 };
 
@@ -56,8 +56,8 @@ void OLED_DrawInit(HWND hWnd)
 
 	BITMAPINFO bi = { 0 };
 	bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bi.bmiHeader.biWidth = WINDOWS_LENGTH;
-	bi.bmiHeader.biHeight = -(int)WINDOWS_HIGH; // 从上到下
+	bi.bmiHeader.biWidth = WINDOWS_LENGTH_MAX;
+	bi.bmiHeader.biHeight = -(int)WINDOWS_HIGH_MAX; // 从上到下
 	bi.bmiHeader.biPlanes = 1;
 	bi.bmiHeader.biBitCount = 32;
 	bi.bmiHeader.biCompression = BI_RGB;
@@ -86,7 +86,7 @@ void OLED_DrawAPoint(int x, int y, Color color)
 	BYTE g = (color >> 8) & 0xFF;
 	BYTE r = color & 0xFF;
 
-	UINT idx = (UINT)y * WINDOWS_LENGTH * 4 + (UINT)x * 4;
+	UINT idx = (UINT)y * WINDOWS_LENGTH_MAX * 4 + (UINT)x * 4;
 	if (a)
 	{
 		if ((g_frameBuf[idx + 0] == 0) && (g_frameBuf[idx + 1] == 0) && (g_frameBuf[idx + 2] == 0))
@@ -141,18 +141,18 @@ void OLED_DrawAByte(int x, int y, int Byte, Color color)
 
 void OLED_Update(HWND hWnd)
 {
-	HDC hdc = GetDC(hWnd);
-	BitBlt(hdc, 0, 0, WINDOWS_LENGTH, WINDOWS_HIGH, g_memDC, 0, 0, SRCCOPY);
-	ReleaseDC(hWnd, hdc);
+	//HDC hdc = GetDC(hWnd);
+	//BitBlt(hdc, 0, 0, WINDOWS_LENGTH, WINDOWS_HIGH, g_memDC, 0, 0, SRCCOPY);
+	//ReleaseDC(hWnd, hdc);
 }
 
-void OLED_DrawClear(int x,int y,int x1,int y1)
+void OLED_DrawClear(int x,int y,int x1,int y1,Color color)
 {
 	int w=x1-x, h=y1-y;
 	UINT idx = (UINT)y * WINDOWS_LENGTH * 4 + (UINT)x * 4;
 	for (int i=0;i < h;i++)
 	{
-		memset(g_frameBuf+(idx+WINDOWS_LENGTH*i)*4, 0, (size_t)w* 4);
+		memset(g_frameBuf+(idx+WINDOWS_LENGTH*i)*4, color, (size_t)w* 4);
 	}
 }
 
@@ -164,6 +164,15 @@ void OLED_DrawClear(int x,int y,int x1,int y1)
   * @retval 无
   */
 void OLED_ShowPicture(void){
+	//StretchBlt(
+	//	g_hdc,
+	//	0, 0,
+	//	WINDOWS_LENGTH, WINDOWS_HIGH,
+	//	g_memDC,
+	//	0, 0,
+	//	WINDOWS_LENGTH_MAX, WINDOWS_HIGH_MAX,
+	//	SRCCOPY
+	//);
 	BitBlt(
 		g_hdc,
 		0, 0,
@@ -841,6 +850,55 @@ void OLED_DrawALine(int x,int y,int x1,int y1,Color color){
 		}
 	}
 }
+
+/**
+	* @brief  画一条有宽度的线
+	* @param  x、y坐标
+	* @param  x1、y1坐标
+	* @param  color 颜色，范围：OLED_Black、OLED_White、OLED_Contr
+	* @retval 无
+	*/
+void OLED_DrawALine_Wide(int x, int y, int x1, int y1,int wide, Color color) {
+	int dx = x1 - x;
+	int dy = y1 - y;
+	int x_a = (x1 > x) ? 1 : -1;
+	int y_a = (y1 > y) ? 1 : -1;
+	int x_n = x, y_n = y;
+	int x_o, y_o;
+	int length_x = (dx > 0) ? dx : -dx;
+	int length_y = (dy > 0) ? dy : -dy;
+	if (length_x >= length_y) {
+		for (int i = 0;i < length_x;i++) {
+			y_n = ((x_n - x) * dy / dx) + y;
+			x_o = x_n - wide / 2;
+			y_o = y_n - wide / 2;
+			for (int k = 0;k < wide;k++)
+			{
+				for (int j = 0;j < wide;j++)
+				{
+					OLED_DrawAPoint(x_o + k, y_o + j, color);
+				}
+			}
+			x_n += x_a;
+		}
+	}
+	else {
+		for (int i = 0;i < length_y;i++) {
+			x_n = ((y_n - y) * dx / dy) + x;
+			x_o = x_n - wide / 2;
+			y_o = y_n - wide / 2;
+			for (int k = 0;k < wide;k++)
+			{
+				for (int j = 0;j < wide;j++)
+				{
+					OLED_DrawAPoint(x_o + k, y_o + j, color);
+				}
+			}
+			y_n += y_a;
+		}
+	}
+}
+
 
 /**
   	* @brief  Axis专用画线函数
