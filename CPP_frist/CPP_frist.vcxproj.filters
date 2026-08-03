@@ -27,12 +27,36 @@
     <ClCompile Include="OLED.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="bmp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Uart.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Radar_Algorithm.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ThreeD.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="OLED.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="OLED_Font.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="bmp.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Uart.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Radar_Algorithm.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreeD.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

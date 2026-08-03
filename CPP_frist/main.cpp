@@ -1,14 +1,26 @@
 
 #include <fstream>
-#include <Windows.h>
-#include <math.h>
-
+#include "bmp.hpp"
+#include "Uart.h"
+#include <thread>
+#include "Radar_Algorithm.h"
+#include "ThreeD.h"
 extern "C" {
-   
+    #include <Windows.h>
+    
+    #include <math.h>
     #include"OLED.h"
+    extern int VanishingPointLength_y;
+    extern int VanishingPointLength_Length;
     extern unsigned int  WINDOWS_LENGTH;
     extern unsigned int WINDOWS_HIGH;
-    extern int16_t OLED_Sample_value[WINDOWS_LENGTH_MAX][4];
+    extern int OLED_Sample_value[WINDOWS_LENGTH_MAX];
+    extern int OLED_Sample_value1[WINDOWS_LENGTH_MAX];
+    extern int OLED_Sample_value2[WINDOWS_LENGTH_MAX];
+     int OLED_Sample_value3[WINDOWS_LENGTH_MAX];
+     int OLED_Sample_value4[WINDOWS_LENGTH_MAX];
+     int OLED_Sample_value5[WINDOWS_LENGTH_MAX] = { 0 };
+     int OLED_Sample_value6[WINDOWS_LENGTH_MAX];
     extern BYTE* g_frameBuf;
     HDC hdc;
 }
@@ -16,16 +28,14 @@ extern "C" {
 #define KEY_DOWN(vk)  (GetAsyncKeyState(vk))
 
 using namespace std;
-
+using namespace Radar_Algorithm;
 fstream file;
 
 int wheel;
 
-
 // 窗口过程回调
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    MSG msg1;
     switch (msg)
     {
         // 窗口绘制时显示文字
@@ -39,7 +49,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     case WM_CLOSE:
     {
-        file.open("test.txt");
+        file.open("test.txt",ios::out);
         file.write((char*)g_frameBuf, WINDOWS_HIGH_MAX*WINDOWS_LENGTH_MAX * 4);
         //file << "smqk" << endl;
         file.close();
@@ -121,12 +131,72 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int windows_high=WINDOWS_HIGH;
     Color color;
     int x_n, x_old, y_n, y_old;
+    //ofstream file1("test.txt");
+    //file1.close();
+    //file.close();
+    //file.open("test.txt",ios::out|ios::in);
+    //file.read((char *)g_frameBuf, WINDOWS_HIGH_MAX * WINDOWS_LENGTH_MAX * 4);
+    //file.close();
 
-    file.open("test.txt");
-    file.read((char *)g_frameBuf, WINDOWS_HIGH_MAX * WINDOWS_LENGTH_MAX * 4);
-    file.close();
+    //MessageBoxA(NULL, "111", "wc", MB_OK);
+
+    float v_x=10, v_y=0;
+    float a_x=1080, a_y=0;
+    float radv=0;
+    //v_y = 10;
+    int bianchang = 200;
+    if (BMP_Open()==0)
+        OLED_DrawAString(50, 50, (char *)"ERROR", COLOR_RED);
+    //for (int i = 0;i < WINDOWS_LENGTH_MAX;i++)
+    //{
+    //    OLED_Sample_value[i] =  cos(i * 0.05 + 1.8) * 10;
+    //    //OLED_Sample_value3[i] = cos(i * 0.05) * 1000;
+    //    //OLED_Sample_value[i]+= (cos(i * 0.05+1) * 100);
+    //    //OLED_Sample_value1[i] = cos(i * 0.1) * 100;
+    //    //OLED_Sample_value1[i] += cos(i * 0.1+2) * 100;
+    //}
+    uart uart1;
+    uart1.Uart_Init();
+    char buf;
+    char_uint16 num[4] = { 0 };
+    DWORD len = 0;
+    int i = 0;
+    char ch[30] = { 0 };
+
+    ThreeD::cube a;
+    int  vd_x=0, vd_y=0, vd_z=0;
+
+
     while (1)
     {
+
+        radv = atan2((v_y > 0) ? v_y : -v_y,(v_x>0)?v_x:-v_x);
+        v_y += 0.5;
+        a_y += v_y;
+        a_x += v_x;
+        if (a_y > 1040 && v_y > 0)
+        {
+            //if(v_x>0)
+            //    rotate_point_Rad(0, 0, -(2 * radv),v_x, v_y,  &v_x, &v_y);
+            //else
+            //    rotate_point_Rad(0, 0, (2 * radv),v_x, v_y, &v_x, &v_y);
+            v_y = -v_y;
+            a_y = 1040;
+        }
+        if (a_x > 1940)
+        {
+            v_x = -v_x;
+            a_x = 1940;
+        }
+        if (a_x <40)
+        {
+            v_x = -v_x;
+            a_x = 40;
+        }
+            
+            //rotate_point_Rad(0, 0, v_x, v_y, 2 * radv, &v_x, &v_y);
+
+        ////OLED_DrawARound(a_x, a_y, 10, 0, COLOR_RED);
         //file << "smqk" << endl;
         //窗口尺寸检测和画布重新生成
         GetCursorPos(&pt);
@@ -143,7 +213,49 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         windows_length = WINDOWS_LENGTH;
         windows_high = WINDOWS_HIGH;
 
-        OLED_Sample_value[t][0] = -(pt.y-470)/2;
+
+
+        //看这里
+       // OLED_Sample_value[t] = -(pt.y-470)/2;
+
+
+
+
+
+        //for (int b = 0;b < 45;b++)
+        //{
+        //    if (ReadFile(uart1.hCom, &buf, 1, &len, NULL))
+        //    {
+        //        if (len > 0)
+        //        {
+        //            if (buf == '\n')
+        //            {
+        //                i = 0;
+        //                //cout << num[0].c << ' ' << num[1].c << ' ' << num[2].c << ' ' << num[3].c << endl;
+        //                OLED_Sample_value[t] = num[0].c/32;
+        //                OLED_Sample_value1[t] = num[1].c / 32;
+        //                OLED_Sample_value2[t] = num[2].c / 32;
+        //                OLED_Sample_value3[t] = num[3].c / 32;
+        //                num[0].c = num[1].c = num[2].c = num[3].c = 0;
+        //                t = (t + 1) % (1000);
+        //            }
+        //            else
+        //            {
+        //                if (i % 2)
+        //                {
+        //                    num[i / 2].total.b = buf;
+        //                }
+        //                else
+        //                {
+        //                    num[i / 2].total.a = buf;
+        //                }
+        //                i++;
+        //            }
+        //            buf = 0;
+        //        }
+        //    }
+        //}
+       
         UpdateWindow(hWnd);
         if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
@@ -152,7 +264,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             if (msg.message == WM_QUIT)
                 break;
         }
-        wheel1 = (wheel1 + ((wheel) ? 1 : ((wheel==0)?0:5))) % 6;
+        VanishingPointLength_Length += wheel;
+        if (VanishingPointLength_Length < 0)VanishingPointLength_Length = 0;
+        //wheel1 = (wheel1 + ((wheel) ? 1 : ((wheel==0)?0:5))) % 6;
         wheel = 0;
         switch (wheel1)
         {
@@ -163,108 +277,119 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             case 4:color = COLOR_BLUE;break;
             case 5:color = COLOR_PURPLE;break;
         }
-        if(KEY_DOWN(VK_LBUTTON) & 0x8000) { 
-            //OLED_DrawAPen(pt.x - rc.left, pt.y - rc.top,5, OLED_White);
-            anglex += (pt.y - pt1.y) * 720 / 1080;
-            anglez += (pt.x - pt1.x) * 720 / 1980;
-            pt1.x = pt.x;
-            pt1.y = pt.y;
-        } else{
-            pt1.x = pt.x;
-            pt1.y = pt.y;
+        //if(KEY_DOWN(VK_LBUTTON) & 0x8000) { 
+        //    //OLED_DrawAPen(pt.x - rc.left, pt.y - rc.top,5, OLED_White);
+        //    anglex += (pt.y - pt1.y) * 720 / 1080;
+        //    anglez -= (pt.x - pt1.x) * 720 / 1980;
+        //    pt1.x = pt.x;
+        //    pt1.y = pt.y;
+        //} else{
+        //    pt1.x = pt.x;
+        //    pt1.y = pt.y;
+        //}
+        anglex += (pt.y - pt1.y) * 720 / 1080;
+        anglez -= (pt.x - pt1.x) * 720 / 1980;
+        pt1.x = pt.x;
+        pt1.y = pt.y;
+
+        if (anglex > 90)
+        {
+            anglex = 90;
         }
-        OLED_DrawAPen(50,50, 50, color);
+        if (anglex < -90)
+        {
+            anglex = -90;
+        }
+        //OLED_DrawAPen(50,50, 50, color);
         
         x_n = pt.x - rc.left - 9;
         y_n = pt.y - rc.top - 40;
 
-
-
-        if (KEY_DOWN(VK_LBUTTON) )
+        if (KEY_DOWN(VK_LBUTTON))
         {
-            int wide = 5;
-            
-           // if (((x_old - x_n < wide || x_n - x_old < wide) && (y_old - y_n < wide || y_n - y_old)) || (y_old == 0 && x_old == 0))
-        
-               OLED_DrawAPen(x_n, y_n,wide, color);
-               OLED_DrawALine_Wide(x_n, y_n, x_old, y_old, wide, color);
-        }
-        if (KEY_DOWN(VK_RBUTTON)) 
-        {
-            //OLED_DrawAPen(pt.x - rc.left - 9, pt.y - rc.top - 40, 50,0x00);
-            OLED_DrawAPen(x_n, y_n, 50, 0);
-            OLED_DrawALine_Wide(x_n, y_n, x_old, y_old, 50, 0);
+            a_x = 1080;
+            a_y = 0;
+            v_x = 10;
+            v_y = 0;
         }
 
+        if (KEY_DOWN('W') & 0x8000)
+        {
+            vd_y += 10 * cos((3.1415926 / 180) * anglez);
+            vd_x -= 10 * sin((3.1415926 / 180) * anglez);
+        }
+        if (KEY_DOWN('A') & 0x8000)
+        {
+            vd_y -= 10 * sin((3.1415926 / 180) * anglez);
+            vd_x-= 10 * cos((3.1415926 / 180) * anglez);
+        }
+        if (KEY_DOWN('S') & 0x8000)
+        {
+            vd_y -= 10 * cos((3.1415926 / 180) * anglez);
+            vd_x += 10 * sin((3.1415926 / 180) * anglez);
+        }
+        if (KEY_DOWN('D') & 0x8000)
+        {
+            vd_y += 10 * sin((3.1415926 / 180) * anglez);
+            vd_x += 10 * cos((3.1415926 / 180) * anglez);
+        }
+        if (KEY_DOWN(VK_SPACE) & 0x8000)
+        {
+            vd_z-= 20;
+        }
+        if (KEY_DOWN(VK_LSHIFT) & 0x8000)
+        {
+            vd_z += 20;
+        }
 
         x_old = x_n;
         y_old = y_n;
-        
 
-        //OLED_DrawClear(0,0, WINDOWS_LENGTH,WINDOWS_HIGH,0);
-        
-        //OLED_DrawANum(200, 80, rc.right - rc.left, 4, OLED_White);
-        //OLED_DrawANum(200, 100, rc.bottom - rc.top, 4, OLED_White);
-        //OLED_DrawANum(200, 120, wheel, 4, OLED_White);
-        //OLED_AMPDrawARatateWord(20, 20, anglez, 'A', COLOR_RED, 8);
-        //float n_vector[3][3] = {
-        //{10,0,0},
-        //{0,10,0},
-        //{0,0,10}
-        //};
-        //for (int i = 0;i < 3;i++)
+        OLED_DrawClear(0,0, WINDOWS_LENGTH,WINDOWS_HIGH,0);
+        Vedio_Updata(vd_x, vd_y,vd_z, anglex, 0, anglez);
+        //OLED_DrawACube(WINDOWS_LENGTH / 2, 500, WINDOWS_HIGH / 2, anglex, 0, anglez, bianchang);
+        a = ThreeD::cube(WINDOWS_LENGTH / 2, 500, WINDOWS_HIGH / 2,0, 0,0, bianchang);
+        a.display();
+        //OLED_DrawAAixs(0, 200, 1000, 300, 1000, OLED_Sample_value, 0, t, COLOR_RED, 1, 0);
+        //OLED_DrawAAixs(0, 300, 1000, 300, 1000, OLED_Sample_value, 0, 0, COLOR_RED, 1, 0);
+        //OLED_DrawAAixs(0, 500, 1024, 800, 1024, photo_reg, 0, 0,COLOR_BLUE, 1, 0);
+        //t = (t + 1)%(1000);
+        int chang = 500;
+        int x_l = 50;
+        int z_l = 50;
+        //for (int i = -x_l;i < x_l;i++)
         //{
-        //    rotate_point_float(0, 0, 0, n_vector[i][0], n_vector[i][2], &n_vector[i][0], &n_vector[i][2]);
-        //    rotate_point_float(0, 0, anglez, n_vector[i][0], n_vector[i][1], &n_vector[i][0], &n_vector[i][1]);
-        //    rotate_point_float(0, 0, anglex, n_vector[i][1], n_vector[i][2], &n_vector[i][1], &n_vector[i][2]);
+        //    for (int j = -z_l;j < z_l;j++)
+        //    {
+        //        if ((i + j) % 2 != 0)
+        //        {
+        //            OLED3D_DrawARotateSquareFace(1000, 2500, 500,
+        //                 i * chang, j*chang, 0,
+        //                 i * chang, (j+1)*chang, 0,
+        //                ( i + 1) * chang, (j + 1) * chang, 0,
+        //                ( i + 1) * chang, j*chang, 0,
+        //                0, 0, 0,
+        //                0xffffffff);
+        //        }
+        //        else
+        //        {
+        //            OLED3D_DrawARotateSquareFace(1000, 2500, 500,
+        //                i * chang, j * chang, 0,
+        //                i * chang, (j + 1) * chang, 0,
+        //                (i + 1) * chang, (j + 1) * chang, 0,
+        //                (i + 1) * chang, j * chang, 0,
+        //                0, 0, 0,
+        //                0xff000000);
+        //        }
+        //    }
         //}
-
-        //if (n_vector[2][1]>0)
-        //{
-        //    // 后面 红色
-        //    OLED3D_DrawARotateFace(320, -200, 240, -50, -50, -50, 50, -50, -50, 50, 50, -50, -50, 50, -50, anglex, 0, anglez, COLOR_RED);
-        //}
-        //else
-        //{
-        //    // 前面 绿色
-        //    OLED3D_DrawARotateFace(320, -200, 240, -50, -50, 50, 50, -50, 50, 50, 50, 50, -50, 50, 50, anglex, 0, anglez, COLOR_GREEN);
-        //}
-        //if (n_vector[0][1]>0)
-        //{
-        //    // 左面 黄色
-        //    OLED3D_DrawARotateFace(320, -200, 240, -50, -50, -50, -50, -50, 50, -50, 50, 50, -50, 50, -50, anglex, 0, anglez, COLOR_YELLOW );
-        //}
-        //else
-        //{
-        //    // 右面 蓝色
-        //    OLED3D_DrawARotateFace(320, -200, 240, 50, -50, -50, 50, -50, 50, 50, 50, 50, 50, 50, -50, anglex, 0, anglez, COLOR_BLUE);
-        //}
-        //if (n_vector[1][1]>0)
-        //{
-        //    // 下面 橙色
-        //    OLED3D_DrawARotateFace(320, -200, 240, -50, -50, -50, 50, -50, -50, 50, -50, 50, -50, -50, 50, anglex, 0, anglez, COLOR_ORANGE);
-        //    OLED3D_AMPDrawARatateWord(320, 0, 240, 0, 50, 0, anglex, -0, anglez + 180, 'B', COLOR_RED, 8);
-        //}
-        //else
-        //{
-        //    // 上面 紫色
-        //    OLED3D_DrawARotateFace(320, -200, 240, -50, 50, -50, 50, 50, -50, 50, 50, 50, -50, 50, 50, anglex, 0, anglez, COLOR_PURPLE );
-        //    OLED3D_AMPDrawARatateWord(320, 0, 240, 0, 50, 0, anglex, 0 + 90, anglez, 'A', COLOR_RED, 8);
-        //}
-
-        //OLED_DrawARatateString(0, 80,-anglez, (char *)"Author :ELVN", 0xFFFFFF);
-        ////OLED3DTKN_AMPDrawARatateString(1080, 0, 540, 0, -5, 0,20, anglex, -0, anglez, (char *)"E L V N", COLOR_RED, wheel1);
-        // OLED3D_DrawARound(1080, 0, 540, wheel1, anglex, 0, anglez, COLOR_RED);
-
-       
-        //OLED3D_AMPDrawARatateWord(160, 200, 120, 0, 50, 0, anglex, -0, anglez + 180, 'B', COLOR_RED, 8);
-        //OLED_DrawAAixs(0,  t, 1);
-        //t = (t + 1)%(WINDOWS_LENGTH_MAX*2);
+        OLED_DrawANum(70, 70, VanishingPointLength_y, 20,OLED_White);
+        OLED_DrawANum(70, 90, vd_x, 20, OLED_White);
+        OLED_DrawANum(70, 110, vd_y, 20, OLED_White);
+        OLED_DrawANum(70, 130, vd_z, 20, OLED_White);
         OLED_ShowPicture();
         OLED_Update(hWnd);
-        Sleep(1);
     }
-
+    uart1.Uart_Close();
     return 0;
 }
-
