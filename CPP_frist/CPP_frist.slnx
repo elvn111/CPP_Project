@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="CPP_frist/CPP_frist.vcxproj" Id="7e92888a-a3c5-4be4-a1cd-b3aa468b578c" />
+</Solution>

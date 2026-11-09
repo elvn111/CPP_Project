@@ -1,0 +1,99 @@
+#include <stdint.h>
+#include <iostream>
+#include <Windows.h>
+
+using  namespace std;
+
+#define LIST_HEAP_NUM_MAX 100
+#define LIST_HEAP_PRIORITY_MAX 10
+
+typedef struct List {
+	List* LastLinke;
+	List* NextLinke;
+	uint8_t Priority;
+};
+
+enum Heap_State {
+	Busy = 1,
+	Ilde = 0
+};
+
+List List_Heap[LIST_HEAP_NUM_MAX] = { 0 };
+Heap_State List_Heap_State[LIST_HEAP_NUM_MAX] = { Ilde };
+List *List_Head[LIST_HEAP_PRIORITY_MAX];
+List *List_Tail[LIST_HEAP_PRIORITY_MAX];
+
+int List_Count_Sum = 0;
+int List_Count[LIST_HEAP_PRIORITY_MAX] = { 0 };
+
+List* List_Heap_Insert(uint8_t priority)
+{
+	if (priority<0 || priority>LIST_HEAP_PRIORITY_MAX)return 0;
+	for (int i = 0;i < LIST_HEAP_NUM_MAX;i++) 
+	{
+		if (List_Heap_State[i] == Ilde) {
+			List_Heap_State[i] = Busy;
+			if (List_Count[priority] == 0)
+			{
+				List_Head[priority] = &List_Heap[i];
+				List_Tail[priority] = &List_Heap[i];
+			}
+			else 
+			{
+				List_Tail[priority]->NextLinke = &List_Heap[i];
+				List_Heap[i].LastLinke = List_Tail[priority];
+				List_Tail[priority] = &List_Heap[i];
+			}
+			List_Count[priority]++;
+			List_Count_Sum++;
+			
+			return &List_Heap[i];
+		}
+	}
+	return 0;
+}
+
+int List_Heap_Free(List* list)
+{
+	if (List_Count_Sum == 0) return 0;
+	if (list == NULL) return 0;
+	if (list < List_Heap || list >= List_Heap + LIST_HEAP_NUM_MAX) return 0;
+
+	int idx = (int)(list - List_Heap);
+	uint8_t priority = list->Priority;
+	if (List_Heap_State[idx] != Busy) return 0;   // 防双重释放
+
+	if (List_Count_Sum == 1) {                        // ① 唯一节点（头尾重合）
+		List_Head[priority] = List_Tail[priority] = NULL;
+	}
+	else if (list == List_Head[priority]) {                 // ② 头节点
+		List_Head[priority] = list->NextLinke;
+		List_Head[priority]->LastLinke = NULL;
+	}
+	else if (list == List_Tail[priority]) {                 // ③ 尾节点
+		List_Tail[priority] = list->LastLinke;
+		List_Tail[priority]->NextLinke = NULL;
+	}
+	else {                                        // ④ 中间节点
+		list->LastLinke->NextLinke = list->NextLinke;
+		list->NextLinke->LastLinke = list->LastLinke;
+	}
+
+	list->LastLinke = NULL;                       // 统一收尾
+	list->NextLinke = NULL;
+	List_Heap_State[idx] = Ilde;
+	List_Count_Sum--;
+	List_Count[priority]--;
+	return 1;
+}
+
+
+int main(void) {
+	for (int i = 0;List_Heap_Insert(i) && i < 120;i++);
+	List* List_Reg = List_Head[9];
+	while (1)
+	{
+		cout << (int)List_Reg << endl;
+		List_Reg = List_Reg->NextLinke;
+	}
+}

@@ -361,3 +361,29 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# ===== 自定义补充：压缩包 / 编译产物 / 大型二进制 =====
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+*.exe
+*.dll
+*.lib
+*.exp
+*.o
+*.axf
+*.tlog
+*.idb
+*.obj
+*.pch
+*.ipch
+.cache/
+ipch/
+packages/
+Generated Files/
+x64/
+x86/
+Debug/
+Release/
+.vs/

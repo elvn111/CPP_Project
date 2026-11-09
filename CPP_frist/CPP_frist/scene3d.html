@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>3D Checkerboard</title>
+<style>
+  body { margin:0; overflow:hidden; background:#222; }
+  canvas { display:block; }
+  #info { position:fixed; bottom:10px; left:10px; color:#fff; font:14px monospace; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="info">WASD=旋转 R=复位 鼠标拖=视角</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from "three";
+
+const w = window.innerWidth, h = window.innerHeight;
+
+// 渲染器
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById("c") });
+renderer.setSize(w, h);
+
+// 场景 + 摄像机
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(60, w/h, 1, 5000);
+cam.position.set(0, 200, 400);
+cam.lookAt(0, 0, 0);
+
+// 黑白棋盘格地面 (256块)
+const tiles = new THREE.Group();
+const matW = new THREE.MeshBasicMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
+const matB = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
+const geo = new THREE.PlaneGeometry(100, 100);
+
+const N = 16;
+for (let ix = -N; ix < N; ix++)
+for (let iz = -N; iz < N; iz++) {
+    const m = new THREE.Mesh(geo, (ix+iz) & 1 ? matB : matW);
+    m.rotation.x = -Math.PI/2;
+    m.position.set(ix*100 + 50, 0, iz*100 + 50);
+    tiles.add(m);
+}
+scene.add(tiles);
+
+// 中心标记 (红球)
+const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(10, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff0000 })
+);
+dot.position.y = 5;
+scene.add(dot);
+
+// 鼠标拖拽旋转
+let isDragging = false, lastX = 0, lastY = 0, angle = 0, pitch = 0.5, dist = 800;
+
+window.addEventListener("mousedown", e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener("mouseup", () => isDragging = false);
+window.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    angle -= (e.clientX - lastX) * 0.005;
+    pitch += (e.clientY - lastY) * 0.005;
+    pitch = Math.max(-1.2, Math.min(1.2, pitch));
+    lastX = e.clientX; lastY = e.clientY;
+});
+
+// 键盘
+const keys = {};
+window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
+
+function loop() {
+    requestAnimationFrame(loop);
+
+    if (keys["a"]) angle -= 0.03;
+    if (keys["d"]) angle += 0.03;
+    if (keys["w"]) pitch += 0.02;
+    if (keys["s"]) pitch -= 0.02;
+    if (keys["r"]) { angle = 0; pitch = 0.5; dist = 800; }
+    pitch = Math.max(-1.2, Math.min(1.2, pitch));
+
+    const y = Math.sin(pitch) * dist;
+    const r = Math.cos(pitch) * dist;
+    cam.position.set(Math.sin(angle) * r, y, Math.cos(angle) * r);
+    cam.lookAt(0, 0, 0);
+
+    renderer.render(scene, cam);
+}
+loop();
+</script>
+</body>
+</html>
